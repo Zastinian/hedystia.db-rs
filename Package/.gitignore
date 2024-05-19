@@ -1,0 +1,8 @@
+node_modules/
+index.node
+Cargo.lock
+pnpm-lock.yaml
+target/
+bun.lockb
+index.d.ts
+index.js
