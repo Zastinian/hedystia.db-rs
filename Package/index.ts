@@ -19,7 +19,7 @@ type CreateTableFunction = (tableName: string, columns: string[]) => void;
 type CreateTableIfNotExistsFunction = (tableName: string, columns: string[]) => void;
 type DeleteTableFunction = (tableName: string) => void;
 type DeleteTableIfExistsFunction = (tableName: string) => void;
-type AddColumnFunction = (tableName: string, column: string, defaultValue?: string) => void;
+type AddColumnFunction = (tableName: string, column: string, defaultValue: string) => void;
 type DeleteColumnFunction = (tableName: string, column: string) => void;
 type InsertFunction = (tableName: string, record: Record) => void;
 type UpdateFunction = (tableName: string, query: Query, newData: Record) => void;
@@ -59,6 +59,9 @@ export default class Database {
     this.db.deleteTableIfExists(tableName);
   }
   addColumn(tableName: string, column: string, defaultValue?: string): void {
+    if (!defaultValue) {
+      defaultValue = "";
+    }
     this.db.addColumn(tableName, column, defaultValue);
   }
   deleteColumn(tableName: string, column: string) {
