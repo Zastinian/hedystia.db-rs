@@ -1,9 +1,9 @@
 ## Installation
 
 ```
-npm i @hedystia/db
+npm i @hedystia/db-rs
 
-yarn add @hedystia/db
+yarn add @hedystia/db-rs
 ```
 
 ## Nodejs Version
@@ -14,12 +14,12 @@ yarn add @hedystia/db
 
 - [Discord](https://discord.gg/aXvuUpvRQs) [Hedystia Discord]
 - [Discord_Bot](https://hedystia.com) [Hedystia Bot]
-- [Docs](https://docs.hedystia.com/db/start) [Hedystia Docs]
+- [Docs](https://docs.hedystia.com/dbrs/start) [Hedystia Docs]
 
 ## Example
 
 ```js
-const Database = require("@hedystia/db");
+const Database = require("@hedystia/db-rs");
 
 // Create a file named database.ht and enter the password
 const database = new Database("./database.ht", "password");
