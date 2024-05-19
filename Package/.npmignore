@@ -5,3 +5,7 @@ Cargo.toml
 pnpm-lock.yaml
 target/
 src/
+index.ts
+tsconfig.json
+bun.lockb
+.npmignore
