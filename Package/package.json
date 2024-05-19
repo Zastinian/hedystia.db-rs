@@ -14,6 +14,13 @@
     "typescript",
     "rust"
   ],
+  "scripts": {
+    "build": "cargo-cp-artifact -nc index.node -- cargo build --message-format=json-render-diagnostics",
+    "build-debug": "npm run build --",
+    "build-release": "npm run build -- --release",
+    "install": "npm run build-release",
+    "test": "cargo test"
+  },
   "author": "contact@hedystia.com",
   "license": "ISC",
   "devDependencies": {
@@ -23,12 +30,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Zastinian/hedystia.db.git"
+    "url": "git+https://github.com/Zastinian/hedystia.db-rs.git"
   },
   "bugs": {
-    "url": "https://github.com/Zastinian/hedystia.db/issues"
+    "url": "https://github.com/Zastinian/hedystia.db-rs/issues"
   },
-  "homepage": "https://github.com/Zastinian/hedystia.db#readme",
+  "homepage": "https://docs.hedystia.com/dbrs/start",
   "engines": {
     "node": ">=18.0.0"
   },
