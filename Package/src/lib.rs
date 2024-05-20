@@ -10,10 +10,20 @@ use std::sync::Arc;
 use std::{collections::HashMap, fs, sync::Mutex};
 use std::{io, str};
 
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[serde(untagged)]
+enum TableValue {
+    String(String),
+    Boolean(bool),
+    Integer(i64),
+    Object(HashMap<String, TableValue>),
+    Array(Vec<TableValue>),
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 struct Table {
     columns: Vec<String>,
-    records: Vec<std::collections::HashMap<String, String>>,
+    records: Vec<HashMap<String, TableValue>>,
 }
 
 struct Database {
@@ -26,15 +36,15 @@ struct Database {
 struct QueueItem {
     method: String,
     table: String,
-    record: Option<std::collections::HashMap<String, String>>,
-    query: Option<std::collections::HashMap<String, String>>,
-    new_data: Option<std::collections::HashMap<String, String>>,
+    record: Option<HashMap<String, TableValue>>,
+    query: Option<HashMap<String, TableValue>>,
+    new_data: Option<HashMap<String, TableValue>>,
 }
 
 impl Database {
     fn new(file_path: String, password: String) -> Self {
         Database {
-            tables: std::collections::HashMap::new(),
+            tables: HashMap::new(),
             file_path,
             password,
             queue: Vec::new(),
@@ -87,7 +97,12 @@ impl Database {
         }
     }
 
-    fn add_column(&mut self, table_name: String, column: String, default_value: Option<String>) {
+    fn add_column(
+        &mut self,
+        table_name: String,
+        column: String,
+        default_value: Option<TableValue>,
+    ) {
         self.read_from_file();
         if !self.tables.contains_key(&table_name) {
             panic!("Table \"{}\" does not exist.", table_name);
@@ -100,7 +115,7 @@ impl Database {
             );
         }
         table.columns.push(column.clone());
-        let default_value = default_value.unwrap_or(String::from(""));
+        let default_value = default_value.unwrap_or(TableValue::String(String::from("")));
         for record in &mut table.records {
             record.insert(column.clone(), default_value.clone());
         }
@@ -127,7 +142,7 @@ impl Database {
         self.save_to_file();
     }
 
-    fn insert(&mut self, table_name: String, record: std::collections::HashMap<String, String>) {
+    fn insert(&mut self, table_name: String, record: HashMap<String, TableValue>) {
         self.queue.push(QueueItem {
             method: "insert".to_string(),
             table: table_name,
@@ -143,8 +158,8 @@ impl Database {
     fn update(
         &mut self,
         table_name: String,
-        query: std::collections::HashMap<String, String>,
-        new_data: std::collections::HashMap<String, String>,
+        query: HashMap<String, TableValue>,
+        new_data: HashMap<String, TableValue>,
     ) {
         self.queue.push(QueueItem {
             method: "update".to_string(),
@@ -161,8 +176,8 @@ impl Database {
     fn select(
         &mut self,
         table_name: String,
-        query: Option<std::collections::HashMap<String, String>>,
-    ) -> Vec<std::collections::HashMap<String, String>> {
+        query: Option<HashMap<String, TableValue>>,
+    ) -> Vec<HashMap<String, TableValue>> {
         self.read_from_file();
         if !self.tables.contains_key(&table_name) {
             panic!("Table \"{}\" does not exist.", table_name);
@@ -184,7 +199,7 @@ impl Database {
         }
     }
 
-    fn delete(&mut self, table_name: String, query: std::collections::HashMap<String, String>) {
+    fn delete(&mut self, table_name: String, query: HashMap<String, TableValue>) {
         self.queue.push(QueueItem {
             method: "delete".to_string(),
             table: table_name,
@@ -212,23 +227,22 @@ impl Database {
         }
     }
 
-    fn insert_table(
-        &mut self,
-        table_name: &String,
-        record: &std::collections::HashMap<String, String>,
-    ) {
+    fn insert_table(&mut self, table_name: &String, record: &HashMap<String, TableValue>) {
         self.read_from_file();
         if !self.tables.contains_key(table_name) {
             panic!("Table \"{}\" does not exist.", table_name);
         }
         let table = self.tables.get_mut(table_name).unwrap();
-        let formatted_record: std::collections::HashMap<String, String> = table
+        let formatted_record: HashMap<String, TableValue> = table
             .columns
             .iter()
             .map(|column| {
                 (
                     column.clone(),
-                    record.get(column).cloned().unwrap_or_default(),
+                    record
+                        .get(column)
+                        .cloned()
+                        .unwrap_or(TableValue::String(String::from(""))),
                 )
             })
             .collect();
@@ -243,8 +257,8 @@ impl Database {
     fn update_table(
         &mut self,
         table_name: &String,
-        query: &std::collections::HashMap<String, String>,
-        new_data: &std::collections::HashMap<String, String>,
+        query: &HashMap<String, TableValue>,
+        new_data: &HashMap<String, TableValue>,
     ) {
         self.read_from_file();
         if !self.tables.contains_key(table_name) {
@@ -256,7 +270,7 @@ impl Database {
             .iter()
             .map(|record| {
                 if query.iter().all(|(column, value)| record[column] == *value) {
-                    let updated_record: HashMap<String, String> = record
+                    let updated_record: HashMap<String, TableValue> = record
                         .iter()
                         .map(|(k, v)| (k.clone(), v.clone()))
                         .chain(new_data.iter().map(|(k, v)| (k.clone(), v.clone())))
@@ -274,11 +288,7 @@ impl Database {
         }
     }
 
-    fn delete_from_table(
-        &mut self,
-        table_name: &String,
-        query: &std::collections::HashMap<String, String>,
-    ) {
+    fn delete_from_table(&mut self, table_name: &String, query: &HashMap<String, TableValue>) {
         self.read_from_file();
         if !self.tables.contains_key(table_name) {
             panic!("Table \"{}\" does not exist.", table_name);
@@ -459,10 +469,10 @@ fn delete_table_if_exists(
 fn add_column(mut cx: FunctionContext, database: Arc<Mutex<Database>>) -> JsResult<JsUndefined> {
     let table_name = cx.argument::<JsString>(0)?.value(&mut cx);
     let column = cx.argument::<JsString>(1)?.value(&mut cx);
-    let default_value = cx
-        .argument_opt(2)
-        .map(|v| Ok(v.downcast_or_throw::<JsString, _>(&mut cx)?.value(&mut cx)))
-        .transpose()?;
+    let default_value = cx.argument_opt(2).map(|val| {
+        convert_js_value_to_table_value(&mut cx, val)
+            .expect("Failed to convert default value to TableValue")
+    });
     let mut db = database.lock().unwrap();
     db.add_column(table_name, column, default_value);
     Ok(cx.undefined())
@@ -476,22 +486,66 @@ fn delete_column(mut cx: FunctionContext, database: Arc<Mutex<Database>>) -> JsR
     Ok(cx.undefined())
 }
 
+fn convert_js_value_to_table_value(
+    cx: &mut FunctionContext,
+    value: Handle<JsValue>,
+) -> NeonResult<TableValue> {
+    if value.is_a::<JsString, _>(cx) {
+        Ok(TableValue::String(
+            value.downcast::<JsString, _>(cx).unwrap().value(cx),
+        ))
+    } else if value.is_a::<JsBoolean, _>(cx) {
+        Ok(TableValue::Boolean(
+            value.downcast::<JsBoolean, _>(cx).unwrap().value(cx),
+        ))
+    } else if value.is_a::<JsNumber, _>(cx) {
+        Ok(TableValue::Integer(
+            value.downcast::<JsNumber, _>(cx).unwrap().value(cx) as i64,
+        ))
+    } else if value.is_a::<JsArray, _>(cx) {
+        let arr = value.downcast::<JsArray, _>(cx).unwrap();
+        let mut arr_vec = Vec::new();
+        let len = arr.len(cx);
+        for i in 0..len {
+            let value = arr.get(cx, i)?;
+            let table_value = convert_js_value_to_table_value(cx, value)?;
+            arr_vec.push(table_value);
+        }
+        Ok(TableValue::Array(arr_vec))
+    } else if value.is_a::<JsObject, _>(cx) {
+        let obj = value.downcast::<JsObject, _>(cx).unwrap();
+        let mut obj_map = HashMap::new();
+        let keys = obj.get_own_property_names(cx)?.to_vec(cx)?;
+        for key in keys {
+            let key_str = key.to_string(cx)?.value(cx);
+            let value = obj.get(cx, key)?;
+            let table_value = convert_js_value_to_table_value(cx, value)?;
+            obj_map.insert(key_str, table_value);
+        }
+        Ok(TableValue::Object(obj_map))
+    } else {
+        panic!("Unsupported value type");
+    }
+}
+
 fn insert(mut cx: FunctionContext, database: Arc<Mutex<Database>>) -> JsResult<JsUndefined> {
     let table_name = cx.argument::<JsString>(0)?.value(&mut cx);
-    let record_obj = cx.argument::<JsObject>(1)?;
-    let mut record: std::collections::HashMap<String, String> = HashMap::new();
-    let keys = record_obj
-        .get_own_property_names(&mut cx)?
-        .to_vec(&mut cx)?;
-    for key in keys {
-        let key_str = key.to_string(&mut cx)?.value(&mut cx);
-        let value = record_obj
-            .get::<JsString, _, _>(&mut cx, key)?
-            .downcast::<JsString, _>(&mut cx);
-        if let Ok(value) = value {
-            let value_str = value.value(&mut cx);
-            record.insert(key_str, value_str);
+    let record_value = cx.argument::<JsValue>(1)?;
+    let mut record: HashMap<String, TableValue> = HashMap::new();
+    match record_value {
+        value if value.is_a::<JsObject, _>(&mut cx) => {
+            let record_obj = value.downcast::<JsObject, _>(&mut cx).unwrap();
+            let keys = record_obj
+                .get_own_property_names(&mut cx)?
+                .to_vec(&mut cx)?;
+            for key in keys {
+                let key_str = key.to_string(&mut cx)?.value(&mut cx);
+                let value = record_obj.get(&mut cx, key)?;
+                let table_value = convert_js_value_to_table_value(&mut cx, value)?;
+                record.insert(key_str, table_value);
+            }
         }
+        _ => panic!("Unsupported record type"),
     }
     let mut db = database.lock().unwrap();
     db.insert(table_name, record);
@@ -501,35 +555,25 @@ fn insert(mut cx: FunctionContext, database: Arc<Mutex<Database>>) -> JsResult<J
 fn update(mut cx: FunctionContext, database: Arc<Mutex<Database>>) -> JsResult<JsUndefined> {
     let table_name = cx.argument::<JsString>(0)?.value(&mut cx);
     let query_obj = cx.argument::<JsObject>(1)?;
-    let mut query: std::collections::HashMap<String, String> = HashMap::new();
+    let mut query: HashMap<String, TableValue> = HashMap::new();
     let keys = query_obj.get_own_property_names(&mut cx)?.to_vec(&mut cx)?;
     for key in keys {
         let key_str = key.to_string(&mut cx)?.value(&mut cx);
-        let value = query_obj
-            .get::<JsString, _, _>(&mut cx, key)?
-            .downcast::<JsString, _>(&mut cx);
-        if let Ok(value) = value {
-            let value_str = value.value(&mut cx);
-            query.insert(key_str, value_str);
-        }
+        let value = query_obj.get(&mut cx, key)?;
+        let table_value = convert_js_value_to_table_value(&mut cx, value)?;
+        query.insert(key_str, table_value);
     }
-
     let new_data_obj = cx.argument::<JsObject>(2)?;
-    let mut new_data: std::collections::HashMap<String, String> = HashMap::new();
+    let mut new_data: HashMap<String, TableValue> = HashMap::new();
     let keys = new_data_obj
         .get_own_property_names(&mut cx)?
         .to_vec(&mut cx)?;
     for key in keys {
         let key_str = key.to_string(&mut cx)?.value(&mut cx);
-        let value = new_data_obj
-            .get::<JsString, _, _>(&mut cx, key)?
-            .downcast::<JsString, _>(&mut cx);
-        if let Ok(value) = value {
-            let value_str = value.value(&mut cx);
-            new_data.insert(key_str, value_str);
-        }
+        let value = new_data_obj.get(&mut cx, key)?;
+        let table_value = convert_js_value_to_table_value(&mut cx, value)?;
+        new_data.insert(key_str, table_value);
     }
-
     let mut db = database.lock().unwrap();
     db.update(table_name, query, new_data);
     Ok(cx.undefined())
@@ -538,13 +582,13 @@ fn update(mut cx: FunctionContext, database: Arc<Mutex<Database>>) -> JsResult<J
 fn select(mut cx: FunctionContext, database: Arc<Mutex<Database>>) -> JsResult<JsValue> {
     let table_name = cx.argument::<JsString>(0)?.value(&mut cx);
     let query_obj = cx.argument_opt(1);
-    let mut query: Option<std::collections::HashMap<String, String>> = None;
+    let mut query: Option<HashMap<String, TableValue>> = None;
 
     if let Some(query_obj) = query_obj {
         let query_obj = query_obj.downcast::<JsObject, _>(&mut cx);
         if let Ok(query_obj) = query_obj {
             let keys = query_obj.get_own_property_names(&mut cx)?.to_vec(&mut cx)?;
-            let mut query_map = std::collections::HashMap::new();
+            let mut query_map = HashMap::new();
             for key in keys {
                 let key_str = key.to_string(&mut cx)?.value(&mut cx);
                 let value = query_obj
@@ -552,7 +596,8 @@ fn select(mut cx: FunctionContext, database: Arc<Mutex<Database>>) -> JsResult<J
                     .downcast::<JsString, _>(&mut cx);
                 if let Ok(value) = value {
                     let value_str = value.value(&mut cx);
-                    query_map.insert(key_str, value_str);
+                    let table_value = TableValue::String(value_str);
+                    query_map.insert(key_str, table_value);
                 }
             }
 
@@ -569,7 +614,7 @@ fn select(mut cx: FunctionContext, database: Arc<Mutex<Database>>) -> JsResult<J
 fn delete(mut cx: FunctionContext, database: Arc<Mutex<Database>>) -> JsResult<JsUndefined> {
     let table_name = cx.argument::<JsString>(0)?.value(&mut cx);
     let query_obj = cx.argument::<JsObject>(1)?;
-    let mut query: std::collections::HashMap<String, String> = HashMap::new();
+    let mut query: HashMap<String, TableValue> = HashMap::new();
     let keys = query_obj.get_own_property_names(&mut cx)?.to_vec(&mut cx)?;
     for key in keys {
         let key_str = key.to_string(&mut cx)?.value(&mut cx);
@@ -578,7 +623,7 @@ fn delete(mut cx: FunctionContext, database: Arc<Mutex<Database>>) -> JsResult<J
             .downcast::<JsString, _>(&mut cx);
         if let Ok(value) = value {
             let value_str = value.value(&mut cx);
-            query.insert(key_str, value_str);
+            query.insert(key_str, TableValue::String(value_str));
         }
     }
     let mut db = database.lock().unwrap();
@@ -626,7 +671,8 @@ fn init(mut cx: FunctionContext) -> JsResult<JsObject> {
     let update_function = JsFunction::new(&mut cx, move |cx| update(cx, Arc::clone(&db8)));
     let select_function = JsFunction::new(&mut cx, move |cx| select(cx, Arc::clone(&db9)));
     let delete_function = JsFunction::new(&mut cx, move |cx| delete(cx, Arc::clone(&db10)));
-    let read_tables_function = JsFunction::new(&mut cx, move |cx| read_tables(cx, Arc::clone(&db11)));
+    let read_tables_function =
+        JsFunction::new(&mut cx, move |cx| read_tables(cx, Arc::clone(&db11)));
     exports.set(&mut cx, "createTable", create_table_function?)?;
     exports.set(
         &mut cx,

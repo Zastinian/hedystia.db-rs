@@ -1,6 +1,6 @@
 {
   "name": "hedystiadb",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "description": "A database made by the company hedystia developed in Rust, easy to use",
   "main": "index.js",
   "types": "index.d.ts",

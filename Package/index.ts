@@ -1,14 +1,16 @@
 const db = require("./index.node");
 
+interface Records {
+  [key: string]: any;
+}
+
 interface Table {
   columns: string[];
-  records: {
-    [key: string]: any;
-  }[];
+  records: Records[];
 }
 
 interface Record {
-  [key: string]: string;
+  [key: string]: string | number | boolean | object | Array<any>;
 }
 
 interface Query {
@@ -19,7 +21,7 @@ type CreateTableFunction = (tableName: string, columns: string[]) => void;
 type CreateTableIfNotExistsFunction = (tableName: string, columns: string[]) => void;
 type DeleteTableFunction = (tableName: string) => void;
 type DeleteTableIfExistsFunction = (tableName: string) => void;
-type AddColumnFunction = (tableName: string, column: string, defaultValue: string) => void;
+type AddColumnFunction = (tableName: string, column: string, defaultValue: string | number | boolean | object | Array<any>) => void;
 type DeleteColumnFunction = (tableName: string, column: string) => void;
 type InsertFunction = (tableName: string, record: Record) => void;
 type UpdateFunction = (tableName: string, query: Query, newData: Record) => void;
@@ -58,7 +60,7 @@ export default class Database {
   deleteTableIfExists(tableName: string): void {
     this.db.deleteTableIfExists(tableName);
   }
-  addColumn(tableName: string, column: string, defaultValue?: string): void {
+  addColumn(tableName: string, column: string, defaultValue?: string | number | boolean | object | Array<any>): void {
     if (!defaultValue) {
       defaultValue = "";
     }
@@ -73,7 +75,7 @@ export default class Database {
   update(tableName: string, query: Query, newData: Record): void {
     this.db.update(tableName, query, newData);
   }
-  select(tableName: string, query?: Query): object {
+  select(tableName: string, query?: Query): Records[] {
     return JSON.parse(this.db.select(tableName, query));
   }
   delete(tableName: string, query: Query): void {
