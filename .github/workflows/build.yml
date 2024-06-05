@@ -13,14 +13,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Change directory to package
-        run: cd Package
-
       - name: Install cross
         run: cargo install cross
 
       - name: Cross compile for Linux
         run: cross build --release --target x86_64-unknown-linux-gnu
+        with:
+          path: ./Package
 
   macos:
     runs-on: macos-latest
@@ -29,14 +28,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Change directory to package
-        run: cd Package
-
       - name: Install cross
         run: cargo install cross
 
       - name: Cross compile for macOS
         run: cross build --release --target x86_64-apple-darwin
+        with:
+          path: ./Package
 
   windows:
     runs-on: windows-latest
@@ -45,14 +43,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Change directory to package
-        run: cd Package
-
       - name: Install cross
         run: cargo install cross
 
       - name: Cross compile for Windows
         run: cross build --release --target x86_64-pc-windows-msvc
+        with:
+          path: ./Package
 
   combine:
     runs-on: ubuntu-latest
@@ -63,11 +60,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Change directory to package
-        run: cd Package
-
       - name: Combine artifacts
         run: |
           cat target/x86_64-unknown-linux-gnu/release/index.node \
               target/x86_64-apple-darwin/release/index.node \
               target/x86_64-pc-windows-msvc/release/index.node > index.node
+        with:
+          path: ./Package
