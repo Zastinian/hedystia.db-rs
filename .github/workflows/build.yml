@@ -3,7 +3,7 @@ name: Build and Combine Neon Project
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   linux:
