@@ -1,0 +1,82 @@
+name: Build and Combine Neon Project
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Change directory to package
+        run: cd Package
+
+      - name: Set up Rust
+        uses: actions/setup-rust@v1
+
+      - name: Install cross
+        run: cargo install cross
+
+      - name: Cross compile for Linux
+        run: cross build --release --target x86_64-unknown-linux-gnu
+
+  macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Change directory to package
+        run: cd Package
+
+      - name: Set up Rust
+        uses: actions/setup-rust@v1
+
+      - name: Install cross
+        run: cargo install cross
+
+      - name: Cross compile for macOS
+        run: cross build --release --target x86_64-apple-darwin
+
+  windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Change directory to package
+        run: cd Package
+
+      - name: Set up Rust
+        uses: actions/setup-rust@v1
+
+      - name: Install cross
+        run: cargo install cross
+
+      - name: Cross compile for Windows
+        run: cross build --release --target x86_64-pc-windows-msvc
+
+  combine:
+    runs-on: ubuntu-latest
+
+    needs: [linux, macos, windows]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Change directory to package
+        run: cd Package
+
+      - name: Combine artifacts
+        run: |
+          cat target/x86_64-unknown-linux-gnu/release/index.node \
+              target/x86_64-apple-darwin/release/index.node \
+              target/x86_64-pc-windows-msvc/release/index.node > index.node
