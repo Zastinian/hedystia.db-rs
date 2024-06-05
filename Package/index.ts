@@ -61,10 +61,11 @@ export default class Database {
     this.db.deleteTableIfExists(tableName);
   }
   addColumn(tableName: string, column: string, defaultValue?: string | number | boolean | object | Array<any>): void {
-    if (!defaultValue) {
-      defaultValue = "";
+    let def = defaultValue
+    if (!def) {
+      def = "";
     }
-    this.db.addColumn(tableName, column, defaultValue);
+    this.db.addColumn(tableName, column, def);
   }
   deleteColumn(tableName: string, column: string) {
     this.db.deleteColumn(tableName, column);
